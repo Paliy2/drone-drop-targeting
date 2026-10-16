@@ -167,12 +167,29 @@ struct FileManager {
     }
 };
 
-int main() {
+int main(int argc, char *argv[]) {
     FileManager file_manager;
     DroneManager drone_manager;
 
-    const ScenarioParams scenario = file_manager.readScenario("scenario.txt");
+    std::string input_file;
+    std::string output_file;
+
+    for (int i = 1; i < argc; i++) {
+        const std::string arg = argv[i];
+        if (arg == "--input-file" && i + 1 < argc) {
+            input_file = argv[++i];
+        } else if (arg == "--output-file" && i + 1 < argc) {
+            output_file = argv[++i];
+        }
+    }
+
+    if (input_file.empty() || output_file.empty()) {
+        std::cerr << "Usage: " << argv[0] << " --input-file <scenario.txt> --output-file <result.txt>\n";
+        return 1;
+    }
+
+    const ScenarioParams scenario = file_manager.readScenario(input_file);
     const HitStatistics statistics = drone_manager.getImpact(scenario);
-    file_manager.writeStatistics("result.txt", statistics);
+    file_manager.writeStatistics(output_file, statistics);
     return 0;
 }
