@@ -29,7 +29,6 @@ CliOptions parseArgs(int argc, char *argv[]) {
     return options;
 }
 
-// Returns nullptr for an unknown model name; caller owns the result.
 ITrajectorySource *makeTrajectory(const std::string &name) {
     if (name == "hover") return new HoverTrajectory();
     if (name == "forward") return new ForwardThrowTrajectory(kForwardDroneVelocity);

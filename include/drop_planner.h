@@ -15,7 +15,6 @@ struct DropSolution {
 
 class DropPlanner {
 public:
-    // Takes ownership of the trajectory model.
     explicit DropPlanner(ITrajectorySource *trajectory) : trajectory_(trajectory) {}
     ~DropPlanner() { delete trajectory_; }
 
