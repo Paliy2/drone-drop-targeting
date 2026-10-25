@@ -165,8 +165,8 @@ include/trajectory.h     ITrajectorySource + HoverTrajectory + ForwardThrowTraje
 include/mission.h        Target, Shell, Scenario
 include/drop_planner.h   DropPlanner (shell / aim point selection, unchanged from HW3)
 include/scenario_io.h    ScenarioReader, ResultWriter
-input/                   sample scenarios
-run-all.sh               builds and runs every input/*.txt
+input/                   course scenarios (mission-*) + own (custom-*)
+run-all.sh               builds (if stale) and runs every input/*.txt
 ```
 
 ## Batch run
