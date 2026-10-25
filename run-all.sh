@@ -7,7 +7,9 @@ INPUT_DIR="input"
 OUTPUT_DIR="output"
 BIN="./drop_calc"
 
-g++ -std=c++17 -Wall -Wextra -O2 main.cpp -o "$BIN"
+if [ ! -x "$BIN" ] || [ -n "$(find main.cpp include -newer "$BIN" 2>/dev/null)" ]; then
+  g++ -std=c++17 -Wall -Wextra -O2 main.cpp -o "$BIN"
+fi
 mkdir -p "$OUTPUT_DIR"
 
 shopt -s nullglob
