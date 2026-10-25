@@ -7,8 +7,11 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY main.cpp run-all.sh ./
+COPY include/ ./include/
 COPY input/ ./input/
 
 RUN chmod +x run-all.sh
+
+ENV TRAJECTORY=hover
 
 CMD ["./run-all.sh"]

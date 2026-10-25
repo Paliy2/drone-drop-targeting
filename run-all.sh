@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 INPUT_DIR="input"
 OUTPUT_DIR="output"
 BIN="./drop_calc"
+TRAJECTORY="${TRAJECTORY:-hover}"
 
 g++ -std=c++17 -Wall -Wextra -O2 main.cpp -o "$BIN"
 mkdir -p "$OUTPUT_DIR"
@@ -21,7 +22,7 @@ failed=0
 for file in "${files[@]}"; do
   base=$(basename "$file" .txt)
   out="$OUTPUT_DIR/${base}-result.txt"
-  if "$BIN" --input-file "$file" --output-file "$out"; then
+  if "$BIN" --input-file "$file" --output-file "$out" --trajectory "$TRAJECTORY"; then
     echo "OK   $file -> $out"
   else
     echo "FAIL $file" >&2
@@ -29,5 +30,5 @@ for file in "${files[@]}"; do
   fi
 done
 
-echo "Processed ${#files[@]} scenario(s), failed: $failed"
+echo "Processed ${#files[@]} scenario(s) [trajectory: $TRAJECTORY], failed: $failed"
 [ "$failed" -eq 0 ]
