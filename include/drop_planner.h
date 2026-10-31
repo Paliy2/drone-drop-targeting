@@ -1,5 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include "mission.h"
 #include "trajectory.h"
 
@@ -13,54 +19,55 @@ struct DropSolution {
     int net() const { return value - shell.price(); }
 };
 
+inline bool isWorse(const DropSolution &a, const DropSolution &b) {
+    if (a.net() != b.net()) return a.net() < b.net();
+    return a.shell.price() > b.shell.price();
+}
+
 class DropPlanner {
 public:
-    explicit DropPlanner(ITrajectorySource *trajectory) : trajectory_(trajectory) {}
-    ~DropPlanner() { delete trajectory_; }
-
-    DropPlanner(const DropPlanner &) = delete;
-    DropPlanner &operator=(const DropPlanner &) = delete;
+    explicit DropPlanner(std::unique_ptr<ITrajectorySource> trajectory) : trajectory_(std::move(trajectory)) {}
 
     DropSolution plan(const Scenario &scenario) const {
-        DropSolution best;
-        bool has_best = false;
+        const std::vector<DropSolution> candidates = buildCandidates(scenario.targets());
+        const auto best_it = std::max_element(candidates.begin(), candidates.end(), isWorse);
 
-        for (const Shell &shell: kShells) {
-            for (const Target &aim: scenario.targets()) {
-                int destroyed = 0;
-                int value_sum = 0;
-
-                for (const Target &target: scenario.targets()) {
-                    if (shell.destroys(aim.position(), target)) {
-                        destroyed++;
-                        value_sum += target.value();
-                    }
-                }
-
-                int net = value_sum - shell.price();
-                bool is_better = !has_best || net > best.net() ||
-                                 (net == best.net() && shell.price() < best.shell.price());
-
-                if (is_better) {
-                    has_best = true;
-                    best.destroyed = destroyed;
-                    best.value = value_sum;
-                    best.shell = shell;
-                    best.impact = aim.position();
-                }
-            }
-        }
-
+        DropSolution best = best_it != candidates.end() ? *best_it : DropSolution{};
         best.release = trajectory_->release(best.impact, scenario.altitude(), scenario.wind());
         return best;
     }
 
 private:
-    static inline const Shell kShells[] = {
+    static std::vector<DropSolution> buildCandidates(const std::vector<Target> &targets) {
+        std::vector<DropSolution> candidates;
+        candidates.reserve(targets.size() * kShells.size());
+
+        for (const Target &aim: targets) {
+            for (const Shell &shell: kShells) {
+                candidates.push_back(evaluate(aim.position(), shell, targets));
+            }
+        }
+        return candidates;
+    }
+
+    static DropSolution evaluate(const Vec2 &impact, const Shell &shell, const std::vector<Target> &targets) {
+        DropSolution candidate;
+        candidate.impact = impact;
+        candidate.shell = shell;
+        for (const Target &target: targets) {
+            if (shell.destroys(impact, target)) {
+                candidate.destroyed++;
+                candidate.value += target.value();
+            }
+        }
+        return candidate;
+    }
+
+    static inline const std::array<Shell, 3> kShells = {{
         {"Frag", 60, 25, 35},
         {"HE", 35, 55, 20},
         {"HEAT", 15, 130, 45},
-    };
+    }};
 
-    ITrajectorySource *trajectory_;
+    std::unique_ptr<ITrajectorySource> trajectory_;
 };

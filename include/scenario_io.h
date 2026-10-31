@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "drop_planner.h"
@@ -28,6 +29,7 @@ public:
         in >> targets_count;
 
         std::vector<Target> targets;
+        targets.reserve(targets_count > 0 ? targets_count : 0);
         for (int i = 0; i < targets_count; i++) {
             Vec2 position;
             int health = 0;
@@ -37,7 +39,7 @@ public:
             targets.emplace_back(position, health, parseTargetType(type));
         }
 
-        return Scenario(altitude, wind, targets);
+        return Scenario(altitude, wind, std::move(targets));
     }
 
 private:
