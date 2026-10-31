@@ -1,3 +1,4 @@
+#include <chrono>
 #include <exception>
 #include <iostream>
 #include <memory>
@@ -54,7 +55,14 @@ int main(int argc, char *argv[]) {
     try {
         const DropPlanner planner(std::move(trajectory));
         const Scenario scenario = ScenarioReader(options.input_file).read();
-        ResultWriter(options.output_file).write(planner.plan(scenario));
+
+        const auto started = std::chrono::steady_clock::now();
+        const DropSolution solution = planner.plan(scenario);
+        const auto finished = std::chrono::steady_clock::now();
+
+        std::cout << "elapsed_us "
+                  << std::chrono::duration_cast<std::chrono::microseconds>(finished - started).count() << "\n";
+        ResultWriter(options.output_file).write(solution);
     } catch (const std::exception &e) {
         std::cerr << e.what() << "\n";
         return 1;
