@@ -50,6 +50,12 @@ worth a fixed value (10 / 20 / 40 / 60 / 90).
 <destroyed> <value_sum> <price> <net>
 ```
 
+The calculation time (reading and writing files excluded) goes to stdout only:
+
+```
+elapsed_us <integer>
+```
+
 ## Example
 
 `input/mission-a.txt`:
@@ -137,8 +143,10 @@ classDiagram
         +net() int
     }
     class DropPlanner {
-        -ITrajectorySource* trajectory_
+        -unique_ptr~ITrajectorySource~ trajectory_
         +plan(Scenario) DropSolution
+        -buildCandidates(targets)$ vector~DropSolution~
+        -evaluate(impact, shell, targets)$ DropSolution
     }
     class ScenarioReader {
         +read() Scenario
@@ -163,10 +171,48 @@ main.cpp                 CLI parsing, trajectory selection, wiring
 include/vec2.h           Vec2 with overloaded +, -, * scalar
 include/trajectory.h     ITrajectorySource + HoverTrajectory + ForwardThrowTrajectory
 include/mission.h        Target, Shell, Scenario
-include/drop_planner.h   DropPlanner (shell / aim point selection, unchanged from HW3)
+include/drop_planner.h   DropPlanner: candidates + std::max_element with isWorse comparator
 include/scenario_io.h    ScenarioReader, ResultWriter
-input/                   course scenarios (mission-*) + own (custom-*)
+input/                   course scenarios (mission-*, large-5000) + own (custom-*)
+expected/                expected outputs for large-5000 (hover / forward)
 run-all.sh               builds (if stale) and runs every input/*.txt
+```
+
+## Best-solution selection
+
+1. `buildCandidates` builds every `aim target × shell` pair with its consequences,
+   targets in input order, shells in table order (Frag, HE, HEAT).
+2. `std::max_element(candidates, isWorse)` picks the best. `isWorse(a, b)`:
+   lower net is worse; on equal net the more expensive shell is worse.
+   `max_element` returns the first of equally best elements, so on a full tie
+   the earlier candidate wins without an extra condition.
+
+## Complexity
+
+Let `N` be the number of targets and `S` the number of shell types.
+Each of the `N` targets is tried as an aim point with each of the `S` shells,
+and for every pair all `N` targets are checked for coverage:
+
+- coverage checks: `N × S × N` → **O(S · N²)**, with `S = 3` constant → **O(N²)**;
+- `max_element` over `N × S` candidates → O(N), negligible;
+- memory: `N × S` candidates → O(N).
+
+Doubling the targets roughly quadruples the time.
+
+## Measured time
+
+Apple M1 Pro, Apple clang 17, `-std=c++17 -Wall -Wextra`:
+
+| Scenario | Targets | `-O2` | `-O0` |
+|---|---|---|---|
+| mission-a … mission-e, custom-a … custom-c | 1–6 | 0–1 µs | 2–6 µs |
+| large-5000 | 5 000 | ~49 000 µs | ~970 000 µs |
+
+Budget for 5 000 targets: 1 s with `-O2`, 5 s without optimizations — both met.
+
+```
+./drop_calc --input-file input/large-5000.txt --output-file result.txt
+diff result.txt expected/large-5000-hover.txt && echo OK
 ```
 
 ## Batch run
@@ -185,3 +231,29 @@ docker build -t drop-calc .
 docker run --rm -v "$PWD/output:/app/output" drop-calc
 docker run --rm -e TRAJECTORY=forward -v "$PWD/output:/app/output" drop-calc
 ```
+
+## Control questions
+
+1. Vector has capacity bigger than size. When it is full, it allocates new bigger
+   memory (around 2x) and copies all elements there, this is slow. But it happens
+   not often, so if we count all push_backs together, one call is O(1) on average.
+2. When vector reallocates memory (push_back or insert when capacity is full, or
+   reserve). Elements go to new place and old memory is freed, so old pointers point
+   to nothing. Also insert and erase break iterators after that position, because
+   elements are shifted.
+3. Then comparator is wrong, it is undefined behavior. For max_element it will take
+   the last equal element and not the first one. Algorithms like sort can even crash.
+4. Candidates are built in same order like in HW3. For equal elements comparator
+   returns false, so max_element keeps the first one. So we dont need separate
+   if for this case.
+5. Because unique_ptr has deleted copy constructor and copy assignment. Compiler
+   sees it and gives error, so two owners of one object is not possible and there is
+   no double delete. To give ownership we use std::move.
+6. Complexity is O(S * N^2). If shells 3 -> 30, work is 10 times more, but it is
+   still O(N^2) because S is constant. If targets 10 times more, work is 100 times more.
+7. System time can change (NTP sync or user changes it), so the result can be wrong
+   or even negative. steady_clock always goes forward.
+8. Without optimizations compiler does not inline functions and keeps variables
+   in memory, so a lot of time is overhead and not the algorithm. Difference between
+   two algorithms can be not the same like in -O2 build, so better to measure the
+   real build.
