@@ -4,3 +4,4 @@ build/
 output/
 drop_calc
 result.txt
+.idea
