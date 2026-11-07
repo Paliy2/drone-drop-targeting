@@ -12,6 +12,8 @@ const std::array<Shell, 3> kShells = {{
     {"HEAT", 15, 130, 45},
 }};
 
+static_assert(kShells.size() <= CoverageChecker::MAX_AMMO_KINDS, "shell table exceeds CoverageChecker capacity");
+
 std::array<double, kShells.size()> shellRadii() {
     std::array<double, kShells.size()> radii{};
     for (std::size_t i = 0; i < kShells.size(); i++) {

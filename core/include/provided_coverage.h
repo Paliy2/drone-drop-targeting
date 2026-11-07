@@ -15,6 +15,7 @@
 #define PROVIDED_COVERAGE_H
 
 #include <cstddef>
+#include <stdexcept>
 
 class CoverageChecker {
 public:
@@ -23,7 +24,11 @@ public:
 
     // radii — радіуси ураження, kinds — скільки їх (не більше MAX_AMMO_KINDS).
     CoverageChecker(const double* radii, std::size_t kinds) : kinds_(kinds) {
-        for (std::size_t i = 0; i <= kinds_; ++i) {
+        if (kinds_ > MAX_AMMO_KINDS) {
+            throw std::invalid_argument("CoverageChecker: too many ammo kinds");
+        }
+        // Valid indices are [0, kinds_): radii has kinds_ elements, r2_ has MAX_AMMO_KINDS.
+        for (std::size_t i = 0; i < kinds_; ++i) {
             r2_[i] = radii[i] * radii[i];
         }
     }
