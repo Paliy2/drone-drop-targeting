@@ -5,11 +5,13 @@ cd "$(dirname "$0")"
 
 INPUT_DIR="input"
 OUTPUT_DIR="output"
-BIN="./drop_calc"
+BUILD_DIR="build-release"
+BIN="$BUILD_DIR/drop_calc"
 TRAJECTORY="${TRAJECTORY:-hover}"
 
-if [ ! -x "$BIN" ] || [ -n "$(find main.cpp include -newer "$BIN" 2>/dev/null)" ]; then
-  g++ -std=c++17 -Wall -Wextra -O2 main.cpp -o "$BIN"
+if [ ! -x "$BIN" ] || [ -n "$(find CMakeLists.txt core app -newer "$BIN" 2>/dev/null)" ]; then
+  cmake -S . -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release >/dev/null
+  cmake --build "$BUILD_DIR"
 fi
 mkdir -p "$OUTPUT_DIR"
 

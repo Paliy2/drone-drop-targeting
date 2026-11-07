@@ -8,8 +8,11 @@ and writes the outcome to a file.
 ## Usage
 
 ```
-g++ -std=c++17 -Wall -Wextra -O2 main.cpp -o drop_calc
-./drop_calc --input-file <scenario.txt> --output-file <result.txt> [--trajectory hover|forward]
+cmake -S . -B build-debug   -DCMAKE_BUILD_TYPE=Debug   && cmake --build build-debug
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release && cmake --build build-release
+cmake -S . -B build-asan    -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON && cmake --build build-asan
+
+./build-release/drop_calc --input-file <scenario.txt> --output-file <result.txt> [--trajectory hover|forward]
 ```
 
 | Argument | Meaning |
@@ -55,6 +58,8 @@ The calculation time (reading and writing files excluded) goes to stdout only:
 ```
 elapsed_us <integer>
 ```
+
+If there are no targets, the program prints `empty scenario` to stderr, exits with code 1 and does not create the output file.
 
 ## Example
 
@@ -167,15 +172,18 @@ classDiagram
 ## Project layout
 
 ```
-main.cpp                 CLI parsing, trajectory selection, wiring
-include/vec2.h           Vec2 with overloaded +, -, * scalar
-include/trajectory.h     ITrajectorySource + HoverTrajectory + ForwardThrowTrajectory
-include/mission.h        Target, Shell, Scenario
-include/drop_planner.h   DropPlanner: candidates + std::max_element with isWorse comparator
-include/scenario_io.h    ScenarioReader, ResultWriter
-input/                   course scenarios (mission-*, large-5000) + own (custom-*)
-expected/                expected outputs for large-5000 (hover / forward)
-run-all.sh               builds (if stale) and runs every input/*.txt
+CMakeLists.txt                    drop_core library + drop_calc app
+app/main.cpp                      CLI parsing, trajectory selection, wiring
+app/scenario_io.h                 ScenarioReader, ResultWriter
+core/include/vec2.h               Vec2 with overloaded +, -, * scalar
+core/include/trajectory.h         ITrajectorySource + HoverTrajectory + ForwardThrowTrajectory
+core/include/mission.h            Target, Shell, Scenario
+core/include/provided_coverage.h  CoverageChecker (provided)
+core/include/drop_planner.h       DropPlanner, DropSolution
+core/src/drop_planner.cpp         candidates + std::max_element with isWorse comparator
+input/                            course scenarios (mission-*, large-5000) + own (custom-*), edge/
+expected/                         expected outputs (hover / forward)
+run-all.sh                        builds (if stale) and runs every input/*.txt
 ```
 
 ## Best-solution selection
@@ -211,7 +219,7 @@ Apple M1 Pro, Apple clang 17, `-std=c++17 -Wall -Wextra`:
 Budget for 5 000 targets: 1 s with `-O2`, 5 s without optimizations — both met.
 
 ```
-./drop_calc --input-file input/large-5000.txt --output-file result.txt
+./build-release/drop_calc --input-file input/large-5000.txt --output-file result.txt
 diff result.txt expected/large-5000-hover.txt && echo OK
 ```
 

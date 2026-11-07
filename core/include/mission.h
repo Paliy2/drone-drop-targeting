@@ -42,11 +42,10 @@ public:
         : name_(std::move(name)), radius_(radius), damage_(damage), price_(price) {}
 
     const std::string &name() const { return name_; }
+    double radius() const { return radius_; }
     int price() const { return price_; }
 
-    bool destroys(const Vec2 &impact, const Target &target) const {
-        return impact.distanceTo(target.position()) <= radius_ && target.health() <= damage_;
-    }
+    bool pierces(const Target &target) const { return target.health() <= damage_; }
 
 private:
     std::string name_;

@@ -28,7 +28,7 @@ public:
         in >> wind.x >> wind.y;
         in >> targets_count;
 
-        if (!in) {
+        if (!in || targets_count < 0) {
             throw std::runtime_error("Invalid scenario header");
         }
 

@@ -4,9 +4,9 @@
 #include <memory>
 #include <string>
 
-#include "include/drop_planner.h"
-#include "include/scenario_io.h"
-#include "include/trajectory.h"
+#include "drop_planner.h"
+#include "scenario_io.h"
+#include "trajectory.h"
 
 const Vec2 kForwardDroneVelocity{12.0, 0.0};
 
