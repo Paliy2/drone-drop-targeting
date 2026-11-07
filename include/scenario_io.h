@@ -27,6 +27,10 @@ public:
         in >> wind.x >> wind.y;
         in >> targets_count;
 
+        if (!in) {
+            throw std::runtime_error("Invalid scenario header");
+        }
+
         std::vector<Target> targets;
         for (int i = 0; i < targets_count; i++) {
             Vec2 position;
@@ -34,6 +38,10 @@ public:
             std::string type;
 
             in >> position.x >> position.y >> health >> type;
+
+            if (!in) {
+                throw std::runtime_error("Invalid target line #" + std::to_string(i));
+            }
             targets.emplace_back(position, health, parseTargetType(type));
         }
 

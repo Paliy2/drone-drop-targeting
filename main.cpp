@@ -1,5 +1,6 @@
 #include <exception>
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "include/drop_planner.h"
@@ -29,9 +30,9 @@ CliOptions parseArgs(int argc, char *argv[]) {
     return options;
 }
 
-ITrajectorySource *makeTrajectory(const std::string &name) {
-    if (name == "hover") return new HoverTrajectory();
-    if (name == "forward") return new ForwardThrowTrajectory(kForwardDroneVelocity);
+std::unique_ptr<ITrajectorySource> makeTrajectory(const std::string &name) {
+    if (name == "hover") return std::make_unique<HoverTrajectory>();
+    if (name == "forward") return std::make_unique<ForwardThrowTrajectory>(kForwardDroneVelocity);
     return nullptr;
 }
 
@@ -44,14 +45,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    ITrajectorySource *trajectory = makeTrajectory(options.trajectory);
+    std::unique_ptr<ITrajectorySource> trajectory = makeTrajectory(options.trajectory);
     if (trajectory == nullptr) {
         std::cerr << "Unknown trajectory: " << options.trajectory << " (expected hover|forward)\n";
         return 1;
     }
 
     try {
-        const DropPlanner planner(trajectory);
+        const DropPlanner planner(std::move(trajectory));
         const Scenario scenario = ScenarioReader(options.input_file).read();
         ResultWriter(options.output_file).write(planner.plan(scenario));
     } catch (const std::exception &e) {

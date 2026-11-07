@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include "mission.h"
 #include "trajectory.h"
 
@@ -15,11 +17,7 @@ struct DropSolution {
 
 class DropPlanner {
 public:
-    explicit DropPlanner(ITrajectorySource *trajectory) : trajectory_(trajectory) {}
-    ~DropPlanner() { delete trajectory_; }
-
-    DropPlanner(const DropPlanner &) = delete;
-    DropPlanner &operator=(const DropPlanner &) = delete;
+    explicit DropPlanner(std::unique_ptr<ITrajectorySource> trajectory) : trajectory_(std::move(trajectory)) {}
 
     DropSolution plan(const Scenario &scenario) const {
         DropSolution best;
@@ -62,5 +60,5 @@ private:
         {"HEAT", 15, 130, 45},
     };
 
-    ITrajectorySource *trajectory_;
+    std::unique_ptr<ITrajectorySource> trajectory_;
 };
