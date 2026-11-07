@@ -8,9 +8,9 @@
 const int WEIGHT_PER_VALUE = 5000000;
 
 // Сумарний ваговий показник усіх цілей сценарію.
-int total_weight(const std::vector<int>& values);
+long long total_weight(const std::vector<int>& values);
 
 // Середній ваговий показник на одну ціль.
-int average_weight(const std::vector<int>& values);
+long long average_weight(const std::vector<int>& values);
 
 #endif  // CASE02_BUDGET_H

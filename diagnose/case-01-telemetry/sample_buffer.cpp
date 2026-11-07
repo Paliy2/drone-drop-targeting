@@ -11,7 +11,7 @@ void SampleBuffer::push(double value) {
     if (size_ == capacity_) {
         // Буфер заповнений: зсуваємо всі зразки на одну позицію вліво,
         // найстаріший витісняється.
-        for (std::size_t i = 0; i < size_; ++i) {
+        for (std::size_t i = 0; i + 1 < size_; ++i) {
             data_[i] = data_[i + 1];
         }
         --size_;
