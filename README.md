@@ -5,37 +5,13 @@ release height, wind, and a list of targets — it picks the best shell and
 aim point, computes the release point with the selected trajectory model,
 and writes the outcome to a file.
 
-## Build
-
-CMake ≥ 3.16. One project description, three build variants:
-
-```
-# Debug: -g, no optimizations (for gdb / lldb / valgrind)
-cmake -S . -B build-debug   -DCMAKE_BUILD_TYPE=Debug   && cmake --build build-debug
-
-# Release: -O3, use it for timing
-cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release && cmake --build build-release
-
-# Diagnostics: AddressSanitizer + UndefinedBehaviorSanitizer (option, OFF by default)
-cmake -S . -B build-asan    -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON \
-                            && cmake --build build-asan
-```
-
-Targets:
-
-- `drop_core` — static library: data model, best-solution search, trajectory models,
-  coverage check. No `main`, no file I/O. Exposes `core/include` as a `PUBLIC`
-  include directory, so anything linking it gets the headers without `-I`.
-- `drop_calc` — thin CLI: argument parsing, scenario reading, calling the core,
-  writing the result, printing the elapsed time.
-
-Sanitizer flags are attached to `drop_core` as `PUBLIC` compile *and* link options, so
-they propagate to `drop_calc` too — the whole program is instrumented and the sanitizer
-runtime is linked.
-
 ## Usage
 
 ```
+cmake -S . -B build-debug   -DCMAKE_BUILD_TYPE=Debug   && cmake --build build-debug
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release && cmake --build build-release
+cmake -S . -B build-asan    -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON && cmake --build build-asan
+
 ./build-release/drop_calc --input-file <scenario.txt> --output-file <result.txt> [--trajectory hover|forward]
 ```
 
@@ -83,9 +59,7 @@ The calculation time (reading and writing files excluded) goes to stdout only:
 elapsed_us <integer>
 ```
 
-Empty scenario (`count` = 0): nothing to aim at, so the core rejects it
-(`DropPlanner::plan` precondition — throws `std::invalid_argument`). The program
-prints `empty scenario` to stderr, exits with code `1` and creates no output file.
+If there are no targets, the program prints `empty scenario` to stderr, exits with code 1 and does not create the output file.
 
 ## Example
 
@@ -130,12 +104,6 @@ classDiagram
         +distanceTo(Vec2) double
     }
 
-    class CoverageChecker {
-        <<provided_coverage.h>>
-        -double r2_[MAX_AMMO_KINDS]
-        +covers(ammo_index, dx, dy) bool
-    }
-
     class ITrajectorySource {
         <<interface>>
         +~ITrajectorySource()
@@ -164,8 +132,7 @@ classDiagram
         -double radius_
         -int damage_
         -int price_
-        +radius() double
-        +pierces(Target) bool
+        +destroys(impact, Target) bool
     }
     class Scenario {
         -double altitude_
@@ -182,10 +149,9 @@ classDiagram
     }
     class DropPlanner {
         -unique_ptr~ITrajectorySource~ trajectory_
-        -CoverageChecker coverage_
         +plan(Scenario) DropSolution
-        -buildCandidates(targets) vector~DropSolution~
-        -evaluate(impact, shell_index, targets) DropSolution
+        -buildCandidates(targets)$ vector~DropSolution~
+        -evaluate(impact, shell, targets)$ DropSolution
     }
     class ScenarioReader {
         +read() Scenario
@@ -196,7 +162,6 @@ classDiagram
 
     Scenario *-- Target
     DropPlanner o-- ITrajectorySource : owns
-    DropPlanner *-- CoverageChecker
     DropPlanner ..> Scenario
     DropPlanner ..> DropSolution
     DropSolution *-- Shell
@@ -207,27 +172,21 @@ classDiagram
 ## Project layout
 
 ```
-CMakeLists.txt                     targets drop_core + drop_calc, ENABLE_SANITIZERS option
-core/include/vec2.h                Vec2 with overloaded +, -, * scalar
-core/include/trajectory.h          ITrajectorySource + HoverTrajectory + ForwardThrowTrajectory
-core/include/mission.h             Target, Shell, Scenario
-core/include/provided_coverage.h   CoverageChecker (provided by the lecturer, off-by-one fixed)
-core/include/drop_planner.h        DropPlanner, DropSolution, isWorse
-core/src/drop_planner.cpp          candidates + std::max_element, coverage via CoverageChecker
-app/main.cpp                       CLI parsing, trajectory selection, timing, wiring
-app/scenario_io.h                  ScenarioReader, ResultWriter (file I/O lives in the app only)
-input/                             course scenarios (mission-*, large-5000) + own (custom-*)
-input/edge/                        edge scenarios: edge-single, edge-empty
-expected/                          expected output for every scenario, hover and forward
-scripts/check.sh                   runs all scenarios × both models against expected/ + empty case
-run-all.sh                         builds Release (if stale) and runs every input/*.txt
+CMakeLists.txt                    drop_core library + drop_calc app
+app/main.cpp                      CLI parsing, trajectory selection, wiring
+app/scenario_io.h                 ScenarioReader, ResultWriter
+core/include/vec2.h               Vec2 with overloaded +, -, * scalar
+core/include/trajectory.h         ITrajectorySource + HoverTrajectory + ForwardThrowTrajectory
+core/include/mission.h            Target, Shell, Scenario
+core/include/provided_coverage.h  CoverageChecker (provided)
+core/include/drop_planner.h       DropPlanner, DropSolution
+core/src/drop_planner.cpp         candidates + std::max_element with isWorse comparator
+input/                            course scenarios (mission-*, large-5000) + own (custom-*), edge/
+expected/                         expected outputs (hover / forward)
+run-all.sh                        builds (if stale) and runs every input/*.txt
 ```
 
 ## Best-solution selection
-
-Coverage: instead of `distance <= radius`, `CoverageChecker` precomputes squared
-radii once and checks `dx² + dy² <= r²`. Both sides are non-negative, so squaring
-keeps the order — results are byte-identical to the previous version.
 
 1. `buildCandidates` builds every `aim target × shell` pair with its consequences,
    targets in input order, shells in table order (Frag, HE, HEAT).
@@ -250,7 +209,7 @@ Doubling the targets roughly quadruples the time.
 
 ## Measured time
 
-Apple M1 Pro, Apple clang 17, `-std=c++17 -Wall -Wextra` (`-O2` ≈ Release build):
+Apple M1 Pro, Apple clang 17, `-std=c++17 -Wall -Wextra`:
 
 | Scenario | Targets | `-O2` | `-O0` |
 |---|---|---|---|
@@ -264,28 +223,6 @@ Budget for 5 000 targets: 1 s with `-O2`, 5 s without optimizations — both met
 diff result.txt expected/large-5000-hover.txt && echo OK
 ```
 
-## Diagnostics
-
-```
-scripts/check.sh build-release/drop_calc   # all scenarios × hover/forward vs expected/, + empty case
-scripts/check.sh build-asan/drop_calc      # same under ASan + UBSan
-valgrind --leak-check=full --track-origins=yes \
-    ./build-debug/drop_calc --input-file input/mission-a.txt --output-file /tmp/result.txt
-```
-
-On macOS 26 the Apple clang ASan runtime hangs at startup, and Valgrind is not
-available — run diagnostics in the course container
-(`lectures/lesson-17-debugging/Dockerfile`):
-
-```
-docker run --rm -it -v "$PWD":/work -w /work miltech-debug bash
-```
-
-Status: in the diagnostic build all scenarios (both models, including `edge-single`
-and `edge-empty`) pass with no sanitizer reports; Valgrind Memcheck reports
-`0 errors`, no leaks on every scenario except large-5000 (skipped, too slow under
-Memcheck). The one defect found — an off-by-one in `provided_coverage.h` — is fixed.
-
 ## Batch run
 
 ```
@@ -293,8 +230,7 @@ Memcheck). The one defect found — an off-by-one in `provided_coverage.h` — i
 TRAJECTORY=forward ./run-all.sh      # forward
 ```
 
-Results go to `output/<name>-result.txt`. Edge scenarios in `input/edge/` are not
-part of the batch (the empty one exits with `1` by design) — `scripts/check.sh` covers them.
+Results go to `output/<name>-result.txt`.
 
 ## Docker
 
