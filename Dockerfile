@@ -1,15 +1,16 @@
 FROM debian:12-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends g++ \
+    && apt-get install -y --no-install-recommends g++ cmake make \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY main.cpp run-all.sh ./
-COPY include/ ./include/
+COPY CMakeLists.txt run-all.sh ./
+COPY core/ ./core/
+COPY app/ ./app/
 
-RUN g++ -std=c++17 -Wall -Wextra -O2 main.cpp -o drop_calc
+RUN cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release && cmake --build build-release
 
 COPY input/ ./input/
 

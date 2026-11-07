@@ -3,3 +3,5 @@
 output
 drop_calc
 result.txt
+build-*
+cmake-build-*
