@@ -1,6 +1,8 @@
 #pragma once
 
+#include <array>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -8,16 +10,14 @@
 
 enum TargetType { PERSONNEL, LOGISTICS, APC, TANK, RADAR, TARGET_TYPE_COUNT };
 
-constexpr int kTargetValues[TARGET_TYPE_COUNT] = {10, 20, 40, 60, 90};
+constexpr std::array<int, TARGET_TYPE_COUNT> kTargetValues = {10, 20, 40, 60, 90};
 
 inline TargetType parseTargetType(const std::string &value) {
-    if (value == "PERSONNEL") return PERSONNEL;
-    if (value == "LOGISTICS") return LOGISTICS;
-    if (value == "APC") return APC;
-    if (value == "TANK") return TANK;
-    if (value == "RADAR") return RADAR;
-
-    return PERSONNEL;
+    static const std::unordered_map<std::string, TargetType> kTypes = {
+        {"PERSONNEL", PERSONNEL}, {"LOGISTICS", LOGISTICS}, {"APC", APC}, {"TANK", TANK}, {"RADAR", RADAR},
+    };
+    const auto it = kTypes.find(value);
+    return it != kTypes.end() ? it->second : PERSONNEL;
 }
 
 class Target {
